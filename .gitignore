@@ -7,6 +7,7 @@ __pycache__/
 
 # Env files
 .env
+.env.docker
 
 # macOS metadata
 .DS_Store
@@ -17,3 +18,7 @@ __pycache__/
 
 # Docker
 **/logs/
+
+qdrant_data/
+
+kmeans_model.pkl
