@@ -14,6 +14,7 @@ from app.api.v1.schemas import (
 from app.services.profile_builder import build_profile_text
 from functools import lru_cache
 from app.services.recommender import StressRecommender
+from app.services.gemini import explain_symbol
 
 router = APIRouter(prefix="/recommend", tags=["recommend"])
 
@@ -44,6 +45,8 @@ def recommend(answers: SurveyAnswers) -> RecommendResponse:
             status_code=404,
             detail="해당 클러스터에 등록된 스트레스 해소법이 없습니다.",
         )
+    
+    recommendations = recommendations[:4]
 
     # 3) symbol 문자열 파싱 ("ACT - 행동형" → code="ACT", name="행동형")
     raw_symbol = result.get("symbol", "UNK - 알 수 없음")
@@ -52,11 +55,14 @@ def recommend(answers: SurveyAnswers) -> RecommendResponse:
     else:
         code, name = raw_symbol, raw_symbol
 
+    symbol_description = explain_symbol(code,name) or "이 성향에 대한 설명을 불러오지 못했습니다."
+
     symbol_resp = SymbolResponse(
         code=code,
         name=name,
         description=(
             f"당신은 '{name}' 성향의 스트레스 해소 유형에 가까운 것으로 보입니다. "
+            f"{symbol_description}"
             f"아래 추천 리스트를 참고해 본인에게 맞는 방법을 골라보세요."
         ),
     )
