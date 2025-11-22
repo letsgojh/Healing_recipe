@@ -29,6 +29,21 @@ docker compose exec api python -m scripts.load_stress_reliefs
 docker compose exec api python -m app.services.clustering
 ~~~
 
+### 현재 docker compose 스택 종료, 컨테이너 삭제
+~~~bash
+docker compose down
+~~~
+
+### image file 삭제
+~~~bash
+docker compose down --rmi all
+~~~
+
+### 볼륨 삭제
+~~~bash
+docker compose down --rmi all --volumes
+~~~
+
 ## Features
 사용자 설문 기반 프로필 텍스트 생성
 Gemini 임베딩 → Qdrant 벡터 저장

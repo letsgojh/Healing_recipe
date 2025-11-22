@@ -43,7 +43,7 @@ class StressClusteringService:
         """
         points, _ = self.client.scroll(
             collection_name=self.collection,
-            limit=10000,
+            limit=10000,          # 충분히 크게
             with_vectors=True,
             with_payload=True,
         )
@@ -69,7 +69,7 @@ class StressClusteringService:
         # KMeans 모델 저장
         joblib.dump(kmeans, "kmeans_model.pkl")
 
-        # 각 포인트에 cluster_id + symbol 저장
+        # 각 포인트에 cluster_id + symbol 저장 (개별 set_payload 사용)
         for pid, cluster_id in zip(ids, labels):
             symbol = CLUSTER_SYMBOLS.get(int(cluster_id), "?")
             self.client.set_payload(
@@ -86,6 +86,7 @@ class StressClusteringService:
     def get_cluster_items(self, cluster_id: int):
         """
         특정 cluster_id에 속한 항목들의 payload를 반환.
+        (limit 기본값이 10이라 꼭 크게 지정해줘야 함)
         """
         result, _ = self.client.scroll(
             collection_name=self.collection,
@@ -99,6 +100,7 @@ class StressClusteringService:
             ),
             with_payload=True,
             with_vectors=False,
+            limit=10000,  # ✅ 이거 안 주면 기본 10개만 옴
         )
 
         return [p.payload for p in result]
