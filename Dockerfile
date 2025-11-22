@@ -17,6 +17,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # 프로젝트 소스 복사
 COPY . .
 
+
+
 # uvicorn으로 FastAPI 실행
 EXPOSE 8000
 

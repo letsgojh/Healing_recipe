@@ -7,16 +7,15 @@ from qdrant_client.http import models as rest
 from sklearn.cluster import KMeans
 import joblib
 
-
 CLUSTER_SYMBOLS = {
-    0: "ACT - 행동형",    # 운동, 활동, 움직임
-    1: "CAL - 안정형",    # 명상, 휴식
-    2: "SEN - 감각형",    # 향, 소리, 감각 자극
-    3: "ORG - 정리형",    # 환경 정돈, 청소
-    4: "SOC - 사회형",    # 대화, 소통
-    5: "CRE - 창의형",    # 그림, 요리, DIY
-    6: "FUN - 몰입형",    # 게임, 퍼즐, 플로우
-    7: "COM - 위로형",    # 음식, 따뜻한, comfort
+    0: "ACT - 행동형",
+    1: "CAL - 안정형",
+    2: "SEN - 감각형",
+    3: "ORG - 정리형",
+    4: "SOC - 사회형",
+    5: "CRE - 창의형",
+    6: "FUN - 몰입형",
+    7: "COM - 위로형",
 }
 
 
@@ -27,10 +26,6 @@ class StressClusteringService:
         host: str | None = None,
         port: int | None = None,
     ):
-        """
-        host/port를 명시하면 그걸 우선 사용,
-        아니면 settings(QDRANT_HOST/PORT)를 사용.
-        """
         self.collection = collection_name or settings.QDRANT_COLLECTION
         self.client = QdrantClient(
             host=host or settings.QDRANT_HOST,
@@ -38,9 +33,6 @@ class StressClusteringService:
         )
 
     def _fetch_all_vectors(self) -> Tuple[List[List[float]], List[str]]:
-        """
-        Qdrant 컬렉션의 모든 벡터와 ID를 가져온다.
-        """
         points, _ = self.client.scroll(
             collection_name=self.collection,
             limit=10000,
@@ -54,10 +46,6 @@ class StressClusteringService:
         return vectors, ids
 
     def cluster(self, n_clusters: int = 8) -> List[int]:
-        """
-        전체 벡터를 KMeans로 클러스터링하고
-        cluster_id & symbol을 Qdrant payload에 저장한다.
-        """
         vectors, ids = self._fetch_all_vectors()
 
         if len(vectors) < n_clusters:
@@ -66,10 +54,10 @@ class StressClusteringService:
         kmeans = KMeans(n_clusters=n_clusters, random_state=42)
         labels = kmeans.fit_predict(vectors)
 
-        # KMeans 모델 저장
+        # 🔹 여기서 컨테이너 안에 kmeans_model.pkl 생성
         joblib.dump(kmeans, "kmeans_model.pkl")
 
-        # 각 포인트에 cluster_id + symbol 저장
+        # Qdrant payload에 cluster_id / symbol 저장
         for pid, cluster_id in zip(ids, labels):
             symbol = CLUSTER_SYMBOLS.get(int(cluster_id), "?")
             self.client.set_payload(
@@ -85,24 +73,28 @@ class StressClusteringService:
 
     def get_cluster_items(self, cluster_id: int):
         """
-        특정 cluster_id에 속한 항목들의 payload를 반환.
+        scroll 전체 돌면서 cluster_id 매칭되는 payload만 수집
         """
-        result, _ = self.client.scroll(
-            collection_name=self.collection,
-            scroll_filter=rest.Filter(
-                must=[
-                    rest.FieldCondition(
-                        key="cluster_id",
-                        match=rest.MatchValue(value=cluster_id),
-                    )
-                ]
-            ),
-            with_payload=True,
-            with_vectors=False,
-        )
+        matched = []
+        offset = None
 
-        return [p.payload for p in result]
+        while True:
+            batch, offset = self.client.scroll(
+                collection_name=self.collection,
+                limit=100,
+                offset=offset,
+                with_payload=True,
+                with_vectors=False,
+            )
 
+            for p in batch:
+                if p.payload.get("cluster_id") == cluster_id:
+                    matched.append(p.payload)
+
+            if offset is None:
+                break
+
+        return matched
 
 if __name__ == "__main__":
     service = StressClusteringService()
