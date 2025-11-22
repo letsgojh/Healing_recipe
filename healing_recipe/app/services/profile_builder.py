@@ -1,5 +1,5 @@
 # app/services/profile_builder.py
-# 프론트로부터 받아서 프롬프트로 묶기
+
 from app.api.v1.schemas import SurveyAnswers
 
 

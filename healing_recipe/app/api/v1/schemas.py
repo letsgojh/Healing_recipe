@@ -1,8 +1,14 @@
 # app/api/v1/schemas.py
 from pydantic import BaseModel
 
+class UserInformation(BaseModel):
+    name : str | None = None
+    age : int | None = None
+
+
 
 class SurveyAnswers(BaseModel):
+    user : UserInformation | None = None
     q1: str
     q2: str
     q3: str
@@ -28,8 +34,10 @@ class ReliefItem(BaseModel):
     title: str | None = None
     description: str | None = None
     persona_label: str | None = None
+    cluster_id: int | None = None
+    symbol: str | None = None
 
 
 class RecommendResponse(BaseModel):
-    symbol: SymbolResponse | None
+    symbol: SymbolResponse
     reliefs: list[ReliefItem]

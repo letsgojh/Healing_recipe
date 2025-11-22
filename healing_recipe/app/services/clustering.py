@@ -1,8 +1,11 @@
+# app/services/clustering.py
+
 from typing import List, Tuple
 from app.core.config import settings
 from qdrant_client import QdrantClient
 from qdrant_client.http import models as rest
 from sklearn.cluster import KMeans
+import joblib
 
 
 CLUSTER_SYMBOLS = {
@@ -18,11 +21,20 @@ CLUSTER_SYMBOLS = {
 
 
 class StressClusteringService:
-    def __init__(self, collection_name: str = "stress_reliefs"):
-        self.collection = collection_name
+    def __init__(
+        self,
+        collection_name: str | None = None,
+        host: str | None = None,
+        port: int | None = None,
+    ):
+        """
+        host/port를 명시하면 그걸 우선 사용,
+        아니면 settings(QDRANT_HOST/PORT)를 사용.
+        """
+        self.collection = collection_name or settings.QDRANT_COLLECTION
         self.client = QdrantClient(
-            host=settings.QDRANT_HOST,
-            port=settings.QDRANT_PORT
+            host=host or settings.QDRANT_HOST,
+            port=port or settings.QDRANT_PORT,
         )
 
     def _fetch_all_vectors(self) -> Tuple[List[List[float]], List[str]]:
@@ -31,9 +43,9 @@ class StressClusteringService:
         """
         points, _ = self.client.scroll(
             collection_name=self.collection,
-            limit=10000,
+            limit=10000,          # 충분히 크게
             with_vectors=True,
-            with_payload=True
+            with_payload=True,
         )
 
         vectors = [p.vector for p in points]
@@ -44,7 +56,7 @@ class StressClusteringService:
     def cluster(self, n_clusters: int = 8) -> List[int]:
         """
         전체 벡터를 KMeans로 클러스터링하고
-        cluster_id를 Qdrant payload에 저장한다.
+        cluster_id & symbol을 Qdrant payload에 저장한다.
         """
         vectors, ids = self._fetch_all_vectors()
 
@@ -54,44 +66,46 @@ class StressClusteringService:
         kmeans = KMeans(n_clusters=n_clusters, random_state=42)
         labels = kmeans.fit_predict(vectors)
 
-        #클러스터링 성공 후에 KMeans 모델 저장 코드 넣기
-        import joblib
+        # KMeans 모델 저장
         joblib.dump(kmeans, "kmeans_model.pkl")
 
-        # 각 포인트에 cluster_id 저장
+        # 각 포인트에 cluster_id + symbol 저장 (개별 set_payload 사용)
         for pid, cluster_id in zip(ids, labels):
-
             symbol = CLUSTER_SYMBOLS.get(int(cluster_id), "?")
             self.client.set_payload(
                 collection_name=self.collection,
                 points=[pid],
-                payload={"cluster_id": int(cluster_id),
-                        "symbol" : symbol         
-                }
+                payload={
+                    "cluster_id": int(cluster_id),
+                    "symbol": symbol,
+                },
             )
 
         return labels
 
     def get_cluster_items(self, cluster_id: int):
         """
-        특정 cluster_id에 속한 항목들을 반환.
+        특정 cluster_id에 속한 항목들의 payload를 반환.
+        (limit 기본값이 10이라 꼭 크게 지정해줘야 함)
         """
         result, _ = self.client.scroll(
             collection_name=self.collection,
             scroll_filter=rest.Filter(
-                must=[rest.FieldCondition(
-                    key="cluster_id",
-                    match=rest.MatchValue(value=cluster_id)
-                )]
+                must=[
+                    rest.FieldCondition(
+                        key="cluster_id",
+                        match=rest.MatchValue(value=cluster_id),
+                    )
+                ]
             ),
             with_payload=True,
-            with_vectors=False
+            with_vectors=False,
+            limit=10000,  # ✅ 이거 안 주면 기본 10개만 옴
         )
 
         return [p.payload for p in result]
 
 
-# 사용 예시
 if __name__ == "__main__":
     service = StressClusteringService()
     labels = service.cluster(8)
