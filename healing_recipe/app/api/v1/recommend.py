@@ -1,6 +1,10 @@
 # app/api/v1/recommend.py
 
+from collections import Counter
+from typing import List
+
 from fastapi import APIRouter, HTTPException
+
 from app.api.v1.schemas import (
     SurveyAnswers,
     RecommendResponse,
@@ -8,60 +12,73 @@ from app.api.v1.schemas import (
     SymbolResponse,
 )
 from app.services.profile_builder import build_profile_text
-from app.services.embeddings import embed_text
-from app.services.vectordb import (
-    init_collection_if_needed,
-    search_similar_stress_reliefs,
-)
-from app.services.symboling import decide_symbol_from_results
+from functools import lru_cache
+from app.services.recommender import StressRecommender
 
-router = APIRouter()
+router = APIRouter(prefix="/recommend", tags=["recommend"])
 
 
-@router.on_event("startup")
-def on_startup():
-    # Qdrant 컬렉션 없으면 생성
-    init_collection_if_needed()
+@lru_cache
+def get_recommender() -> StressRecommender:
+    # 처음 한 번만 생성해서 캐시에 넣고, 그 다음부터는 재사용
+    return StressRecommender()
 
 
-@router.post("/recommend", response_model=RecommendResponse)
-def recommend(answers: SurveyAnswers):
-    # 1) 설문 응답 → 프로필 텍스트
+@router.post("", response_model=RecommendResponse)
+def recommend(answers: SurveyAnswers) -> RecommendResponse:
+    """
+    설문 응답 → 프로필 텍스트 → Recommender로 추천.
+    """
+
+    recommender = get_recommender()
+
+    # 1) 설문 응답을 하나의 설명 텍스트로 변환
     profile_text = build_profile_text(answers)
 
-    # 2) 텍스트 → 임베딩 벡터 (오늘은 더미 임베딩)
-    user_vec = embed_text(profile_text)
+    # 2) Recommender 호출 (cluster_id + symbol + 추천 리스트 반환)
+    result = recommender.recommend(profile_text)
 
-    # 3) Qdrant에서 유사한 해소법 검색
-    results = search_similar_stress_reliefs(user_vec, top_k=10)
-
-    if not results:
-        # 아직 DB에 아무 것도 없는 경우
+    recommendations = result.get("recommendations", [])
+    if not recommendations:
         raise HTTPException(
             status_code=404,
-            detail="아직 등록된 스트레스 해소법이 없습니다. 관리자에게 문의해주세요.",
+            detail="해당 클러스터에 등록된 스트레스 해소법이 없습니다.",
         )
 
-    # 4) 심볼 결정
-    symbol_dict = decide_symbol_from_results(results)
-    symbol_response = (
-        SymbolResponse(**symbol_dict) if symbol_dict is not None else None
+    # 3) symbol 문자열 파싱 ("ACT - 행동형" → code="ACT", name="행동형")
+    raw_symbol = result.get("symbol", "UNK - 알 수 없음")
+    if " - " in raw_symbol:
+        code, name = raw_symbol.split(" - ", 1)
+    else:
+        code, name = raw_symbol, raw_symbol
+
+    symbol_resp = SymbolResponse(
+        code=code,
+        name=name,
+        description=(
+            f"당신은 '{name}' 성향의 스트레스 해소 유형에 가까운 것으로 보입니다. "
+            f"아래 추천 리스트를 참고해 본인에게 맞는 방법을 골라보세요."
+        ),
     )
 
-    # 5) 해소법 리스트 변환
-    relief_items: list[ReliefItem] = []
-    for r in results:
-        payload = r.payload or {}
+    # 4) 추천 리스트를 ReliefItem으로 변환
+    relief_items: List[ReliefItem] = []
+    for idx, payload in enumerate(recommendations):
+        # payload는 load_dummy_reliefs.py + clustering.py에서 넣어준 딕셔너리라고 가정
         relief_items.append(
             ReliefItem(
-                id=r.id,
+                # id는 Qdrant에선 안 가져왔으니, 일단 인덱스로 대체하거나
+                # 필요 없으면 schemas에서 id 필드를 optional/nullable로 처리해도 됨
+                id=idx,
                 title=payload.get("title"),
                 description=payload.get("description"),
                 persona_label=payload.get("persona_label"),
+                cluster_id=payload.get("cluster_id"),
+                symbol=payload.get("symbol"),
             )
         )
 
     return RecommendResponse(
-        symbol=symbol_response,
+        symbol=symbol_resp,
         reliefs=relief_items,
     )

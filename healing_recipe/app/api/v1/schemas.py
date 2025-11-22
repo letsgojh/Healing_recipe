@@ -28,8 +28,10 @@ class ReliefItem(BaseModel):
     title: str | None = None
     description: str | None = None
     persona_label: str | None = None
+    cluster_id: int | None = None
+    symbol: str | None = None
 
 
 class RecommendResponse(BaseModel):
-    symbol: SymbolResponse | None
+    symbol: SymbolResponse
     reliefs: list[ReliefItem]
