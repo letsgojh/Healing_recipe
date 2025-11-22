@@ -1,27 +1,44 @@
 import React from 'react';
-import { recommendations } from '../data/mockDatas'; // 나중에는 API 응답으로 대체
 
-function ResultScreen({ name, onRestart }) {
-  // 나중에 recommendations 대신 props로 serverResult를 받을 예정입니다.
-  
+function ResultScreen({ name, serverResult, onRestart }) {
+  if (!serverResult) {
+    return (
+      <div className="result-screen fade-in">
+        <div className="error-text">분석 결과가 없습니다. 다시 시도해주세요.</div>
+        <button className="restart-btn" onClick={onRestart}>홈으로 돌아가기</button>
+      </div>
+    );
+  }
+
+  const { symbol, reliefs } = serverResult;
+
   return (
     <div className="result-screen fade-in">
       <div className="result-header">
-        <div className="icon-container small">🏆</div>
+        <div className="icon-container small">🎁</div> 
+        
         <div className="header-text">
-          <h2>{name}님을 위한 처방전</h2>
-          <p>분석된 스트레스 유형에 따른 최적의 솔루션입니다.</p>
+          <h2>{name}님은 <span className="highlight">'{symbol.name}'</span> 입니다</h2>
+          <p className="symbol-desc">{symbol.description}</p>
         </div>
       </div>
 
-      <div className="cards-grid">
-        {recommendations.map((item, index) => (
-          <div key={index} className="result-card">
-            <div className="card-icon-box">{item.icon}</div>
-            <h3>{item.title}</h3>
-            <p>{item.desc}</p>
-          </div>
-        ))}
+      <div className="recommendation-section">
+        <h3>✨ {name}님을 위한 추천 레시피</h3>
+        
+        <div className="cards-grid">
+          {reliefs.map((item) => (
+            <div key={item.id} className="result-card">
+              <div className="card-header">
+                <div className="card-icon-box">💊</div>
+                <div className="card-title-box">
+                    <h3>{item.title}</h3>
+                    {item.description && <p>{item.description}</p>}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
       <button className="restart-btn" onClick={onRestart}>다시 검사하기</button>
