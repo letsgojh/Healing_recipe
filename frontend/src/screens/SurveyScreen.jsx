@@ -5,21 +5,17 @@ function SurveyScreen({ onFinish }) {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [collectedAnswers, setCollectedAnswers] = useState([]);
 
-  // 1. 계층 구조의 데이터를 '질문 하나하나의 리스트'로 펼칩니다. (Flatten)
-  // 이렇게 하면 "다음 질문" 로직을 그대로 쓸 수 있습니다.
   const allQuestions = useMemo(() => {
     return SURVEY_DATA.flatMap((section) => 
       section.items.map((item) => ({
         ...item,
-        category: section.category // 질문마다 카테고리 정보를 심어줍니다.
+        category: section.category
       }))
     );
   }, []);
 
   const handleOptionClick = (option) => {
     const currentQuestion = allQuestions[currentQuestionIndex];
-
-    // 2. 답변 저장 포맷 (서버가 좋아할 형태로 저장)
     const newAnswer = { 
       category: currentQuestion.category,
       question_id: currentQuestion.id,
@@ -30,7 +26,6 @@ function SurveyScreen({ onFinish }) {
     const updatedAnswers = [...collectedAnswers, newAnswer];
     setCollectedAnswers(updatedAnswers);
 
-    // 3. 다음 단계 로직
     const nextQuestion = currentQuestionIndex + 1;
     if (nextQuestion < allQuestions.length) {
       setCurrentQuestionIndex(nextQuestion);
