@@ -11,7 +11,7 @@ function App() {
   const [age, setAge] = useState('');
   
   const [isLoading, setIsLoading] = useState(false);
-  const [serverResult, setServerResult] = useState(null); // 서버에서 받은 결과
+  const [serverResult, setServerResult] = useState(null); 
 
   const handleStart = () => {
     if (name && age) setStep('survey');
@@ -49,7 +49,7 @@ function App() {
       {isLoading && (
         <div className="loading-overlay fade-in">
           <div className="spinner"></div>
-          <p>AI가 당신의 스트레스를 분석하고 있습니다...🧠</p>
+          <p>== AI가 당신의 스트레스를 분석하고 있습니다 ==</p>
         </div>
       )}
 

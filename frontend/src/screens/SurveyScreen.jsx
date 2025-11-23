@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { SURVEY_DATA } from '../data/questions'; // 새로 만든 데이터 파일 임포트
+import { SURVEY_DATA } from '../data/questions';
 
 function SurveyScreen({ onFinish }) {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -41,7 +41,6 @@ function SurveyScreen({ onFinish }) {
     <div className="survey-screen fade-in">
       <div className="progress-area">
         <div className="progress-header">
-          {/* 카테고리 이름 표시 (선택 사항) */}
           <span className="category-badge">{currentQ.category}</span>
           <span>{currentQuestionIndex + 1} / {allQuestions.length}</span>
         </div>

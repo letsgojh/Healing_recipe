@@ -1,7 +1,6 @@
 import React from 'react';
 
 function ResultScreen({ name, serverResult, onRestart }) {
-  // 1. 데이터가 없을 때 방어 코드
   if (!serverResult) {
     return (
       <div className="result-screen fade-in">
@@ -11,15 +10,12 @@ function ResultScreen({ name, serverResult, onRestart }) {
     );
   }
 
-  // 2. 구조 분해 할당
   const { symbol, reliefs } = serverResult;
 
-  // 3. 설명 텍스트에서 ** 기호 제거 (깔끔하게 보이도록)
   const cleanDescription = symbol.description.replace(/\*\*/g, '');
 
   return (
     <div className="result-screen fade-in">
-      {/* --- 헤더 섹션: 결과 유형 설명 --- */}
       <div className="result-header">
         <div className="icon-container small">🎉</div>
         
@@ -30,8 +26,6 @@ function ResultScreen({ name, serverResult, onRestart }) {
           </div>
         </div>
       </div>
-
-      {/* --- 본문 섹션: 추천 리스트 --- */}
       <div className="recommendation-section">
         <h3>💡 {symbol.name}을 위한 맞춤 처방전</h3>
         
@@ -39,10 +33,8 @@ function ResultScreen({ name, serverResult, onRestart }) {
           {reliefs.map((item) => (
             <div key={item.id} className="result-card">
               <div className="card-content">
-                <div className="card-icon">💊</div>
                 <div className="card-text">
                   <h4>{item.title}</h4>
-                  {/* description이 null이면 렌더링 안 함 */}
                   {item.description && <p>{item.description}</p>}
                 </div>
               </div>
